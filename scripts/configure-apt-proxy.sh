@@ -2,6 +2,15 @@
 # Configure package caching on Ubuntu and Ubuntu-based client machines.
 set -eu
 
+proxy_url=${1-}
+proxy_url_pattern='http://([a-zA-Z0-9][a-zA-Z0-9.-]*|\[[0-9a-fA-F:.]+\])(:[0-9]{1,5})?/?'
+if [ "$#" -ne 1 ] || [ -z "$proxy_url" ] ||
+    [ "$proxy_url" != "$(printf '%s\n' "$proxy_url" | LC_ALL=C grep -xE "$proxy_url_pattern" | head -n 1)" ]; then
+    printf '%s\n' "Usage: $0 http://proxy-host:8000/" >&2
+    exit 1
+fi
+proxy_url=${proxy_url%/}/
+
 if [ ! -r /etc/os-release ]; then
     printf '%s\n' 'Cannot detect the operating system: /etc/os-release is missing.' >&2
     exit 1
@@ -24,7 +33,7 @@ run_as_root() {
     fi
 }
 
-printf '%s\n' 'Acquire::http::Proxy "http://vmlxutil01.aaronslab.net:8000/";' |
+printf 'Acquire::http::Proxy "%s";\n' "$proxy_url" |
     run_as_root tee /etc/apt/apt.conf.d/01squid-deb-proxy > /dev/null
 # Refresh Docker's signing key only on clients with its Ubuntu repository.
 if grep -Rqs 'https://download.docker.com/linux/ubuntu' /etc/apt/sources.list /etc/apt/sources.list.d; then

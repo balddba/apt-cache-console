@@ -2,5 +2,7 @@
 
 import os
 
-os.environ.setdefault("UI_PASSWORD", "test-dashboard-password")
-os.environ.setdefault("SQUID_MANAGER_PASSWORD", "test-manager-password-123456")
+os.environ.setdefault(key="UI_PASSWORD", value="test-dashboard-password")
+os.environ.setdefault(
+    key="SQUID_MANAGER_PASSWORD", value="test-manager-password-123456"
+)

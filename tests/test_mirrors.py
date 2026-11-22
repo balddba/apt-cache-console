@@ -19,12 +19,12 @@ type MirrorClient = tuple[TestClient, Path]
 def mirror_client(tmp_path: Path) -> MirrorClient:
     """Create an authenticated app with an isolated persistent allowlist."""
     path = tmp_path / "mirrors.acl"
-    path.write_text("# Existing mirrors\n.ubuntu.com\ndownload.docker.com\n")
+    path.write_text(data="# Existing mirrors\n.ubuntu.com\ndownload.docker.com\n")
     settings = replace(Settings.load(), mirrors=path)
-    client = TestClient(create_app(settings))
+    client = TestClient(app=create_app(settings=settings))
     assert (
         client.post(
-            "/api/login",
+            url="/api/login",
             json={"username": settings.username, "password": settings.password},
             headers={"X-Requested-With": "squid-ui"},
         ).status_code
@@ -41,9 +41,9 @@ def update(
 ) -> Response:
     """Submit a versioned allowlist update with action protection by default."""
     if revision is None:
-        revision = client.get("/api/mirrors").json()["revision"]
+        revision = client.get(url="/api/mirrors").json()["revision"]
     return client.put(
-        "/api/mirrors",
+        url="/api/mirrors",
         json={"domains": domains, "revision": revision},
         headers={"X-Requested-With": "squid-ui"} if headers is None else headers,
     )
@@ -52,24 +52,27 @@ def update(
 def test_save_normalizes_and_persists(mirror_client: MirrorClient) -> None:
     """Normalize hostnames, retain subdomain semantics, and publish readable storage."""
     client, path = mirror_client
-    before = client.get("/api/mirrors").json()
+    before = client.get(url="/api/mirrors").json()
     assert before["domains"] == [".ubuntu.com", "download.docker.com"]
-    with patch("app.main.manager_report", return_value="ok") as manager:
+    with patch(target="app.main.manager_report", return_value="ok") as manager:
         response = update(
-            client, [" Download.Docker.Com ", ".ubuntu.com", "download.docker.com"]
+            client=client,
+            domains=[" Download.Docker.Com ", ".ubuntu.com", "download.docker.com"],
         )
     assert response.status_code == 200
     assert response.json()["domains"] == ["download.docker.com", ".ubuntu.com"]
     assert response.json()["revision"] != before["revision"]
-    assert client.get("/api/mirrors").json()["domains"] == response.json()["domains"]
+    assert (
+        client.get(url="/api/mirrors").json()["domains"] == response.json()["domains"]
+    )
     assert path.stat().st_mode & 0o777 == 0o644
     manager.assert_called_once()
-    assert manager.call_args.args[1] == "reconfigure"
+    assert manager.call_args.kwargs["report"] == "reconfigure"
 
 
 @pytest.mark.parametrize(
-    "domain",
-    [
+    argnames="domain",
+    argvalues=[
         "https://download.docker.com/linux/ubuntu",
         "*.docker.com",
         "docker.com:443",
@@ -91,28 +94,31 @@ def test_invalid_domains_never_write_or_reload(
     """Reject malformed domains and configuration injection before changing storage."""
     client, path = mirror_client
     original = path.read_bytes()
-    with patch("app.main.manager_report") as manager:
-        assert update(client, [domain]).status_code == 422
+    with patch(target="app.main.manager_report") as manager:
+        assert update(client=client, domains=[domain]).status_code == 422
     assert path.read_bytes() == original
     manager.assert_not_called()
 
 
-@pytest.mark.parametrize("domains", [[], ["docker.com"] * 201, [42]])
+@pytest.mark.parametrize(argnames="domains", argvalues=[[], ["docker.com"] * 201, [42]])
 def test_bounded_payload(
     mirror_client: MirrorClient, domains: Sequence[str | int]
 ) -> None:
     """Bound entry counts and reject non-string hostnames."""
     client, _ = mirror_client
-    assert update(client, domains).status_code == 422
+    assert update(client=client, domains=domains).status_code == 422
 
 
 def test_stale_editor(mirror_client: MirrorClient) -> None:
     """Reject stale browser revisions without overwriting a newer list."""
     client, path = mirror_client
-    revision = client.get("/api/mirrors").json()["revision"]
-    path.write_text("example.com\n")
-    with patch("app.main.manager_report") as manager:
-        assert update(client, ["docker.com"], revision).status_code == 409
+    revision = client.get(url="/api/mirrors").json()["revision"]
+    path.write_text(data="example.com\n")
+    with patch(target="app.main.manager_report") as manager:
+        assert (
+            update(client=client, domains=["docker.com"], revision=revision).status_code
+            == 409
+        )
     assert path.read_text() == "example.com\n"
     manager.assert_not_called()
 
@@ -122,9 +128,10 @@ def test_reload_failure_restores_previous_file(mirror_client: MirrorClient) -> N
     client, path = mirror_client
     original = path.read_bytes()
     with patch(
-        "app.main.manager_report", side_effect=HTTPException(503, "offline")
+        target="app.main.manager_report",
+        side_effect=HTTPException(status_code=503, detail="offline"),
     ) as manager:
-        response = update(client, ["docker.com"])
+        response = update(client=client, domains=["docker.com"])
     assert response.status_code == 502
     assert path.read_bytes() == original
     assert manager.call_count == 2
@@ -133,10 +140,10 @@ def test_reload_failure_restores_previous_file(mirror_client: MirrorClient) -> N
 def test_storage_failures(mirror_client: MirrorClient) -> None:
     """Surface missing and unwritable shared storage without reporting success."""
     client, path = mirror_client
-    with patch("app.mirrors.replace_mirrors", side_effect=PermissionError):
-        assert update(client, ["docker.com"]).status_code == 503
+    with patch(target="app.mirrors.replace_mirrors", side_effect=PermissionError):
+        assert update(client=client, domains=["docker.com"]).status_code == 503
     path.unlink()
-    assert client.get("/api/mirrors").status_code == 503
+    assert client.get(url="/api/mirrors").status_code == 503
 
 
 def test_auth_and_action_boundary(mirror_client: MirrorClient) -> None:
@@ -145,14 +152,14 @@ def test_auth_and_action_boundary(mirror_client: MirrorClient) -> None:
     cookie = client.cookies.get("squid_ui_session")
     assert cookie is not None
     client.cookies.clear()
-    assert client.get("/api/mirrors").status_code == 401
-    assert client.put("/api/mirrors", json={}).status_code == 401
-    client.cookies.set("squid_ui_session", cookie)
-    assert update(client, ["docker.com"], headers={}).status_code == 403
-    revision = client.get("/api/mirrors").json()["revision"]
+    assert client.get(url="/api/mirrors").status_code == 401
+    assert client.put(url="/api/mirrors", json={}).status_code == 401
+    client.cookies.set(name="squid_ui_session", value=cookie)
+    assert update(client=client, domains=["docker.com"], headers={}).status_code == 403
+    revision = client.get(url="/api/mirrors").json()["revision"]
     assert (
         client.put(
-            "/api/mirrors",
+            url="/api/mirrors",
             json={"domains": ["docker.com"], "revision": revision, "extra": True},
             headers={"X-Requested-With": "squid-ui"},
         ).status_code

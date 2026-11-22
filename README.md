@@ -45,13 +45,13 @@ Both published ports bind to all IPv4 interfaces (`0.0.0.0`) by default: the das
 
 ## Connect APT clients
 
-For Ubuntu and Ubuntu-based clients using the lab proxy at `http://vmlxutil01.aaronslab.net:8000/`, run the included setup script on each client from this repository:
+For Ubuntu and Ubuntu-based clients, run the included setup script on each client. Replace the example URL with the Docker host’s reachable IP address or hostname and published proxy port.
 
 ```bash
-sh scripts/configure-apt-proxy.sh
+sh scripts/configure-apt-proxy.sh http://192.168.1.10:8000/
 ```
 
-The script checks the distribution, writes `/etc/apt/apt.conf.d/01squid-deb-proxy`, refreshes Docker’s signing key if its Ubuntu repository is configured, and runs `apt-get update`, using `sudo` when needed. Running it again reapplies the same configuration.
+The script checks the distribution, writes `/etc/apt/apt.conf.d/01squid-deb-proxy`, refreshes Docker’s signing key if its Ubuntu repository is configured, and runs `apt-get update`, using `sudo` when needed. Rerun it with the desired proxy URL to update the configuration.
 
 The dashboard’s **Client setup** section generates these commands for your proxy URL and provides copy buttons. Run them on each Debian or Ubuntu **client**.
 

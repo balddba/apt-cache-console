@@ -16,18 +16,18 @@ def server_setup(tmp_path: Path) -> ServerSetup:
     project = tmp_path / "project"
     scripts = project / "scripts"
     scripts.mkdir(parents=True)
-    (project / ".env").write_text("# Test configuration\n")
+    (project / ".env").write_text(data="# Test configuration\n")
     release = tmp_path / "os-release"
-    release.write_text("ID=ubuntu\n")
+    release.write_text(data="ID=ubuntu\n")
     keyrings = tmp_path / "keyrings"
     keyrings.mkdir()
     key = keyrings / "docker.asc"
-    key.write_text("existing-key")
+    key.write_text(data="existing-key")
     source_path = Path(__file__).resolve().parents[1] / "scripts/setup-server.sh"
     source = source_path.read_text()
     script = scripts / "setup-server.sh"
     script.write_text(
-        source.replace("/etc/os-release", str(release)).replace(
+        data=source.replace("/etc/os-release", str(release)).replace(
             "/etc/apt/keyrings", str(keyrings)
         )
     )
@@ -35,7 +35,7 @@ def server_setup(tmp_path: Path) -> ServerSetup:
     binaries.mkdir()
     mock = binaries / "mock"
     mock.write_text(
-        """#!/bin/sh
+        data="""#!/bin/sh
 set -eu
 command=${0##*/}
 printf '%s\\n' "$command $*" >> "$SETUP_LOG"
@@ -55,11 +55,11 @@ case "$command" in
 esac
 """
     )
-    mock.chmod(0o755)
+    mock.chmod(mode=0o755)
     for command in ("id", "curl", "install", "apt-get", "docker"):
-        (binaries / command).symlink_to(mock)
+        (binaries / command).symlink_to(target=mock)
     log = tmp_path / "commands.log"
-    install = shutil.which("install")
+    install = shutil.which(cmd="install")
     assert install is not None
     env = dict(
         os.environ,
@@ -76,7 +76,7 @@ def run_setup(
     """Run the copied script without touching host APT, Docker, or keyrings."""
     script, _, _, _, _, env = server_setup
     return subprocess.run(
-        ["sh", str(script)],
+        args=["sh", str(script)],
         env=env | overrides,
         cwd=script.parent,
         capture_output=True,
@@ -91,7 +91,7 @@ def test_server_setup_installs_key_before_apt_and_startup(
     """Install a readable key before updating APT on each setup run."""
     _, _, _, key, log, _ = server_setup
     for _ in range(2):
-        result = run_setup(server_setup)
+        result = run_setup(server_setup=server_setup)
         assert result.returncode == 0, result.stderr
         assert key.read_text() == "downloaded-key"
         assert key.stat().st_mode & 0o777 == 0o644
@@ -103,13 +103,13 @@ def test_server_setup_installs_key_before_apt_and_startup(
     )
 
 
-@pytest.mark.parametrize("mode", ["fail", "empty"])
+@pytest.mark.parametrize(argnames="mode", argvalues=["fail", "empty"])
 def test_server_setup_preserves_key_when_download_fails(
     server_setup: ServerSetup, mode: str
 ) -> None:
     """Keep the old key and skip APT and startup after unusable downloads."""
     _, _, _, key, log, _ = server_setup
-    result = run_setup(server_setup, DOWNLOAD_MODE=mode)
+    result = run_setup(server_setup=server_setup, DOWNLOAD_MODE=mode)
     assert result.returncode != 0
     assert key.read_text() == "existing-key"
     assert "apt-get" not in log.read_text()
@@ -119,12 +119,12 @@ def test_server_setup_preserves_key_when_download_fails(
 def test_server_setup_stops_when_apt_fails(server_setup: ServerSetup) -> None:
     """Do not start containers if package index verification fails."""
     _, _, _, _, log, _ = server_setup
-    result = run_setup(server_setup, APT_STATUS="100")
+    result = run_setup(server_setup=server_setup, APT_STATUS="100")
     assert result.returncode == 100
     assert "docker compose up" not in log.read_text()
 
 
-@pytest.mark.parametrize("missing_env", [True, False])
+@pytest.mark.parametrize(argnames="missing_env", argvalues=[True, False])
 def test_server_setup_rejects_missing_config_or_wrong_os(
     server_setup: ServerSetup, missing_env: bool
 ) -> None:
@@ -133,7 +133,7 @@ def test_server_setup_rejects_missing_config_or_wrong_os(
     if missing_env:
         (project / ".env").unlink()
     else:
-        release.write_text("ID=debian\n")
-    result = run_setup(server_setup)
+        release.write_text(data="ID=debian\n")
+    result = run_setup(server_setup=server_setup)
     assert result.returncode != 0
     assert not log.exists()
