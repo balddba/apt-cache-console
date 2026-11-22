@@ -1,0 +1,62 @@
+services:
+  squid-deb-proxy:
+    image: squid-deb-proxy:local
+    build: ./proxy
+    restart: unless-stopped
+    environment:
+      SQUID_MANAGER_PASSWORD: ${SQUID_MANAGER_PASSWORD:?Set SQUID_MANAGER_PASSWORD in .env}
+    ports:
+      - "${PROXY_BIND:-0.0.0.0}:${PROXY_PORT:-8000}:8000"
+    volumes:
+      - proxy-cache:/var/cache/squid-deb-proxy
+      - proxy-logs:/var/log/squid-deb-proxy
+      - ./proxy/mirrors.acl:/etc/squid-deb-proxy/ui-mirrors.acl:ro
+      - proxy-mirrors:/var/lib/squid-mirrors
+    networks: [proxy]
+    healthcheck:
+      test: [CMD, python3, -c, "import socket; socket.create_connection(('127.0.0.1', 8000), 3).close()"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    stop_grace_period: 45s
+
+  squid-deb-proxy-ui:
+    image: apt-cache-console:local
+    build: .
+    restart: unless-stopped
+    environment:
+      SQUID_HOST: squid-deb-proxy
+      SQUID_PORT: "8001"
+      SQUID_MANAGER_PASSWORD: ${SQUID_MANAGER_PASSWORD:?Set SQUID_MANAGER_PASSWORD in .env}
+      UI_USERNAME: ${UI_USERNAME:-admin}
+      UI_PASSWORD: ${UI_PASSWORD:?Set UI_PASSWORD in .env}
+      UI_COOKIE_SECURE: ${UI_COOKIE_SECURE:-false}
+      ACCESS_LOG: /var/log/squid-deb-proxy/access.log
+      MIRRORS_FILE: /var/lib/squid-mirrors/mirrors.acl
+    ports:
+      - "${UI_BIND:-0.0.0.0}:${UI_PORT:-8080}:8080"
+    volumes:
+      - proxy-logs:/var/log/squid-deb-proxy:ro
+      - proxy-mirrors:/var/lib/squid-mirrors
+    networks: [proxy]
+    depends_on:
+      squid-deb-proxy:
+        condition: service_healthy
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  proxy:
+
+volumes:
+  proxy-cache:
+  proxy-logs:
+  proxy-mirrors:

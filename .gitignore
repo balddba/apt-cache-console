@@ -1,0 +1,25 @@
+# Local environment configuration
+.env
+.env.*
+!.env.example
+
+# Python environments and bytecode
+.venv/
+__pycache__/
+*.py[co]
+
+# Test, lint, and coverage output
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+/htmlcov/
+
+# Python build output
+/build/
+/dist/
+*.egg-info/
+
+# IDE and macOS files
+.idea/
+.DS_Store

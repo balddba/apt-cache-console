@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f172a"><title>Sign in · APT Cache Console</title>
+  <link rel="icon" type="image/jpeg" href="/static/apt-cache-console-mark-dark.jpg">
+  <link rel="stylesheet" href="/static/style.css"><script src="/static/login.js" defer></script>
+</head>
+<body class="login-page">
+  <main class="login-card">
+    <a class="brand" href="/"><img class="brand-mark" src="/static/apt-cache-console-mark-dark.jpg" width="64" height="64" alt="">APT Cache Console</a>
+    <div class="eyebrow">Package caching and monitoring</div>
+    <h1>Welcome back.</h1>
+    <p>Sign in to monitor your cache and manage your proxy.</p>
+    <form id="login-form">
+      <label for="username">Username</label>
+      <input id="username" name="username" autocomplete="username" required maxlength="256" autofocus>
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="4096">
+      <p id="login-error" class="setup-error" role="alert" hidden></p>
+      <button class="button primary" id="sign-in" type="submit">Sign in</button>
+    </form>
+    <noscript><p>Enable JavaScript to sign in to the dashboard.</p></noscript>
+  </main>
+</body>
+</html>

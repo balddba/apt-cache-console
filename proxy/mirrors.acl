@@ -1,0 +1,7 @@
+# Add repository hostnames here, then reload configuration from the dashboard.
+.debian.org
+.ubuntu.com
+archive.canonical.com
+.launchpad.net
+.launchpadcontent.net
+download.docker.com

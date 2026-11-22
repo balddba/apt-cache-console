@@ -1,0 +1,51 @@
+[project]
+name = "apt-cache-console"
+version = "0.1.0"
+description = "A containerized dashboard for squid-deb-proxy"
+requires-python = ">=3.15"
+dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8,<10",
+    "httpx>=0.28,<1",
+    "ruff>=0.11,<1",
+    "ty>=0.0.107,<1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py315"
+
+[tool.ruff.lint]
+extend-select = [
+    "A",    # Avoid shadowing Python built-ins.
+    "ANN",  # Require type annotations on function parameters and returns.
+    "ARG",  # Flag unused function and method arguments.
+    "B",    # Catch common Python bugs and surprising constructs (Bugbear).
+    "C4",   # Simplify comprehensions and collection constructors.
+    "D",    # Check docstrings using the Google convention configured below.
+    "DTZ",  # Flag datetime operations that omit timezone information.
+    "FAST", # Catch common FastAPI route and dependency mistakes.
+    "G",    # Use deferred formatting in logging calls.
+    "I",    # Sort and group imports (isort).
+    "LOG",  # Catch incorrect use of the logging API.
+    "PIE",  # Flag redundant or ineffective code.
+    "PT",   # Check pytest fixtures, parametrization, and assertions.
+    "PTH",  # Prefer pathlib for filesystem paths.
+    "RET",  # Simplify returns and flag missing explicit return values.
+    "RUF",  # Apply Ruff-specific checks for bugs and redundant code.
+    "SIM",  # Simplify Python control flow and expressions.
+    "T10",  # Flag debugger calls and imports left in the code.
+    "T20",  # Flag print and pprint calls.
+    "UP",   # Modernize syntax for the configured Python version (pyupgrade).
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ty.src]
+include = ["app", "tests"]
+
